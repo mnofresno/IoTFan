@@ -5,13 +5,11 @@
 
 const char* mqtt_server = "mqtt-broker.lan";
 const char* topic_to_subscribe = "iot-fan/output";
-
 const int relay = 26;
 
 WiFiClient espClient;
 WiFiManager wm;
 PubSubClient client(espClient);
-
 
 void setup() {
     pinMode(relay, OUTPUT);

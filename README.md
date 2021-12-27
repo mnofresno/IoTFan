@@ -2,5 +2,5 @@
 
 Inside this repo is contained these projects:
 
-* mqtt-transformer
+* mqtt_transformer
 * iot-fan-arduino
