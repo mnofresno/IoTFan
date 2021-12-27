@@ -14,13 +14,13 @@ const client = mqtt.connect(connectUrl, {
   password: credentials.password
 })
 
-const topic = '/nodejs/mqtt'
+const topic = 'iot-fan/output'
 client.on('connect', () => {
   console.log('Connected')
   client.subscribe([topic], () => {
     console.log(`Subscribe to topic '${topic}'`)
   })
-  client.publish(topic, 'nodejs mqtt test', { qos: 0, retain: false }, (error) => {
+  client.publish(topic, 'on', { qos: 0, retain: false }, (error) => {
     if (error) {
       console.error(error)
     }
