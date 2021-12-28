@@ -3,7 +3,7 @@
 #include <PubSubClient.h>
 #include <WiFi.h>
 
-const char* mqtt_server = "mqtt-broker.lan";
+const char* mqtt_server = "192.168.1.1";
 const char* topic_to_subscribe = "iot-fan/output";
 const int relay = 26;
 
