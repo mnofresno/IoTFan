@@ -2,6 +2,9 @@
 //#include ".credentials.h"
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <esp_task_wdt.h>
+
+#define WDT_TIMEOUT 3
 
 const char* mqtt_server = "192.168.1.1";
 const char* topic_to_subscribe = "iot-fan/output";
@@ -11,9 +14,15 @@ WiFiClient espClient;
 WiFiManager wm;
 PubSubClient client(espClient);
 
+int i = 0;
+int last = millis();
+
 void setup() {
+    esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL); //add current thread to WDT watch
+
     pinMode(relay, OUTPUT);
-    digitalWrite(relay, HIGH);   
+    setPowerOn();  
 
     WiFi.mode(WIFI_STA);
     Serial.begin(115200);
@@ -32,14 +41,13 @@ void setup() {
     
       wm.setConfigPortalBlocking(false);
       wm.startConfigPortal();
-
   
       wm.server->on("/iot-fan/output/on", [&]() {
-        digitalWrite(relay, HIGH);   
+        setPowerOn();
         wm.server->send(200, "application/json","{\"status\": \"Power on relay\"}");
       });
       wm.server->on("/iot-fan/output/off", [&]() {
-        digitalWrite(relay, LOW);
+        setPowerOff();
         wm.server->send(200, "application/json", "{\"status\": \"Power off relay\"}");
       });
 
@@ -52,11 +60,11 @@ void setup() {
 
 void loop() {
     wm.process();
-
     if (!client.connected()) {
       reconnect();
     }
     client.loop();
+    reset_wdt();
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length) {
@@ -74,14 +82,22 @@ void mqtt_callback(char* topic, byte* message, unsigned int length) {
   if (String(topic) == topic_to_subscribe) {
     Serial.print("Changing output to ");
     if(messageTemp == "on"){
-      Serial.println("on");
-      digitalWrite(relay, HIGH);
+      setPowerOn();
     }
     else if(messageTemp == "off"){
-      Serial.println("off");
-      digitalWrite(relay, LOW);
+      setPowerOff();
     }
   }
+}
+
+void setPowerOn() {
+  Serial.println("on - NC relay is OFF");
+  digitalWrite(relay, LOW);
+}
+
+void setPowerOff() {
+  Serial.println("off - NC relay is ON");
+  digitalWrite(relay, HIGH);
 }
 
 void reconnect() {
@@ -98,9 +114,22 @@ void reconnect() {
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      Serial.println(" try again in 1 seconds");
       // Wait 5 seconds before retrying
-      delay(5000);
+      delay(1000);
     }
+  }
+}
+
+void reset_wdt() {
+  // resetting WDT every 2s, 5 times only
+  if (millis() - last >= 2000 && i < 5) {
+      Serial.println("Resetting WDT...");
+      esp_task_wdt_reset();
+      last = millis();
+      i++;
+      if (i == 5) {
+        Serial.println("Stopping WDT reset. CPU should reboot in 3s");
+      }
   }
 }
