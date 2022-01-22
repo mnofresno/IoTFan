@@ -22,13 +22,11 @@ server.start(function () {
 server.on('request', function (req, res) {
   if (req.path === '/poweron') {
     fetch('http://192.168.1.16:1789/iot-fan/output/on');
-    res.writeHead(204, {'Content-Type': 'text/plain'});
-    return res.end();
+    return res.writeHead(204, {'Content-Type': 'text/plain'});
   }
   if (req.path === '/poweroff') {
     fetch('http://192.168.1.16:1789/iot-fan/output/off');
-    res.writeHead(204, {'Content-Type': 'text/plain'});
-    return res.end();
+    return res.writeHead(204, {'Content-Type': 'text/plain'});
   }
   // req.path is the URL resource (file name) from server.rootPath
   // req.elapsedTime returns a string of the request's elapsed time
