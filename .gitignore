@@ -1,3 +1,4 @@
 *.bin
 .credentials.h
 password_file
+node_modules

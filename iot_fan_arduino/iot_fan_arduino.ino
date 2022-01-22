@@ -1,27 +1,20 @@
 #include <WiFiManager.h>
 //#include ".credentials.h"
 #include <PubSubClient.h>
-#include <WiFi.h>
-#include <esp_task_wdt.h>
-
-#define WDT_TIMEOUT 3
 
 const char* mqtt_server = "192.168.1.1";
 const char* topic_to_subscribe = "iot-fan/output";
-const int relay = 26;
+const int relay = 0;
 
 WiFiClient espClient;
 WiFiManager wm;
 PubSubClient client(espClient);
 
 int i = 0;
-int last = millis();
 
 void setup() {
-    esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
-    esp_task_wdt_add(NULL); //add current thread to WDT watch
-
     pinMode(relay, OUTPUT);
+    delay(5000);
     setPowerOn();  
 
     WiFi.mode(WIFI_STA);
@@ -29,7 +22,7 @@ void setup() {
     
     bool res;
     
-    res = wm.autoConnect("IoTFan","password"); // password protected ap
+    res = wm.autoConnect("IoTFanESPMini","password"); // password protected ap
 
     if(!res) {
         Serial.println("Failed to connect");
@@ -50,12 +43,9 @@ void setup() {
         setPowerOff();
         wm.server->send(200, "application/json", "{\"status\": \"Power off relay\"}");
       });
-
       client.setServer(mqtt_server, 1883);
       client.setCallback(mqtt_callback);
-
     }
-
 }
 
 void loop() {
@@ -64,7 +54,6 @@ void loop() {
       reconnect();
     }
     client.loop();
-    reset_wdt();
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length) {
@@ -91,12 +80,12 @@ void mqtt_callback(char* topic, byte* message, unsigned int length) {
 }
 
 void setPowerOn() {
-  Serial.println("on - NC relay is OFF");
+  Serial.println("on - NO relay is ON");
   digitalWrite(relay, LOW);
 }
 
 void setPowerOff() {
-  Serial.println("off - NC relay is ON");
+  Serial.println("off - NO relay is OFF");
   digitalWrite(relay, HIGH);
 }
 
@@ -118,18 +107,5 @@ void reconnect() {
       // Wait 5 seconds before retrying
       delay(1000);
     }
-  }
-}
-
-void reset_wdt() {
-  // resetting WDT every 2s, 5 times only
-  if (millis() - last >= 2000 && i < 5) {
-      Serial.println("Resetting WDT...");
-      esp_task_wdt_reset();
-      last = millis();
-      i++;
-      if (i == 5) {
-        Serial.println("Stopping WDT reset. CPU should reboot in 3s");
-      }
   }
 }
