@@ -17,16 +17,20 @@ const client = mqtt.connect(connectUrl, {
 })
 
 const topic = 'iot-fan/output';
+var currentStatus = "Desconocido";
 
 client.on('connect', () => {
   console.log('Connected')
-  client.subscribe([topic], () => {
+  client.subscribe([topic, "fan_status_res"], () => {
     console.log(`Subscribe to topic '${topic}'`)
   });
 })
 
 client.on('message', (topic, payload) => {
   console.log('Received Message:', topic, payload.toString())
+  if (topic === 'fan_status_res') {
+    currentStatus = payload;
+  }
 })
 
 var sendMessage = function(message) {
@@ -52,4 +56,9 @@ app.get('/iot-fan/output/off', (req, res) => {
 
 app.listen(transformerPort, '0.0.0.0', () => {
   console.log(`MQTT Transformer app listening at http://localhost:${transformerPort}`)
+});
+
+app.get('/iot-fan/output/status', (req, res) => {
+  res.contentType('application/json');
+  res.send('{"updatedStatus":' + currentStatus + '}')
 });

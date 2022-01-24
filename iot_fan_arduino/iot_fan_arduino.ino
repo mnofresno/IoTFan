@@ -6,6 +6,7 @@ const char* mqtt_server = "192.168.1.1";
 const char* topic_to_subscribe = "iot-fan/output";
 const int relay = 0;
 
+String currentStatus = "";
 WiFiClient espClient;
 WiFiManager wm;
 PubSubClient client(espClient);
@@ -13,10 +14,11 @@ PubSubClient client(espClient);
 int i = 0;
 
 void setup() {
-    pinMode(relay, OUTPUT);
+    pinMode(relay, OUTPUT);    
+    setPowerOff();
     delay(5000);
-    setPowerOn();  
-
+    setPowerOn();
+    
     WiFi.mode(WIFI_STA);
     Serial.begin(115200);
     
@@ -77,16 +79,27 @@ void mqtt_callback(char* topic, byte* message, unsigned int length) {
       setPowerOff();
     }
   }
+  if(String(topic) == "fan_status_req") {
+    sendStatus();
+  }
+}
+
+void sendStatus() {
+  client.publish("fan_status_res", ("status: " + currentStatus).c_str());
 }
 
 void setPowerOn() {
   Serial.println("on - NO relay is ON");
   digitalWrite(relay, LOW);
+  currentStatus = "on";
+  sendStatus();
 }
 
 void setPowerOff() {
   Serial.println("off - NO relay is OFF");
   digitalWrite(relay, HIGH);
+  currentStatus = "off";
+  sendStatus();
 }
 
 void reconnect() {

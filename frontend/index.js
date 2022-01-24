@@ -1,6 +1,9 @@
 import StaticServer from 'static-server';
 import fetch from 'node-fetch';
 
+// var transformerBaseUrl = 'http://192.168.1.16:1789';
+var transformerBaseUrl = 'http://localhost:1789';
+
 var server = new StaticServer({
   rootPath: '.',            // required, the root of the server file tree
   port: 8187,               // required, the port to listen
@@ -21,17 +24,21 @@ server.start(function () {
  
 server.on('request', function (req, res) {
   if (req.path === '/poweron') {
-    fetch('http://192.168.1.16:1789/iot-fan/output/on');
+    fetch(transformerBaseUrl + '/iot-fan/output/on');
     return res.writeHead(204, {'Content-Type': 'text/plain'});
   }
   if (req.path === '/poweroff') {
-    fetch('http://192.168.1.16:1789/iot-fan/output/off');
+    fetch(transformerBaseUrl + '/iot-fan/output/off');
     return res.writeHead(204, {'Content-Type': 'text/plain'});
   }
-  // req.path is the URL resource (file name) from server.rootPath
-  // req.elapsedTime returns a string of the request's elapsed time
+  if (req.path === '/status') {
+    fetch(transformerBaseUrl + '/iot-fan/output/status').then(statusResponse => statusResponse.text()).then(data => {
+      return res.writeHead(200, {"status": data})
+    });
+    
+  }
 });
- 
+
 server.on('symbolicLink', function (link, file) {
   // link is the source of the reference
   // file is the link reference
