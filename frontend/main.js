@@ -1,6 +1,6 @@
 var updateStatus = function() {
   $.get('/status').then(function (res) {
-    $('#state').text(res);
+    $('#state').text(res.updatedStatus === 'status: on' ? 'Encendido' : 'Apagado');
   });
 };
 

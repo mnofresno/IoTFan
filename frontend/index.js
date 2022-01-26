@@ -1,56 +1,34 @@
-import StaticServer from 'static-server';
-import fetch from 'node-fetch';
+var express = require('express');
+const https = require('http');
+
+var app = express();
+app.use(express.static(__dirname));
+app.listen(process.env.PORT || 8187);
+
+// import fetch from 'node-fetch';
 
 // var transformerBaseUrl = 'http://192.168.1.16:1789';
 var transformerBaseUrl = 'http://localhost:1789';
-
-var server = new StaticServer({
-  rootPath: '.',            // required, the root of the server file tree
-  port: 8187,               // required, the port to listen
-  name: 'iot-server',   // optional, will set "X-Powered-by" HTTP header
-  host: '0.0.0.0',       // optional, defaults to any interface
-  cors: '*',                // optional, defaults to undefined
-  followSymlink: true,      // optional, defaults to a 404 error
-  templates: {
-    index: './index.html',      // optional, defaults to 'index.html'
-    notFound: '404.html'    // optional, defaults to undefined
-  }
+ 
+app.get('/poweron', function (req, res) {
+    https.get(transformerBaseUrl + '/iot-fan/output/on');
+    return res.writeHead(204, {'Content-Type': 'text/plain'});
 });
 
- 
-server.start(function () {
-  console.log('Server listening to', server.port);
+app.get('/poweroff', function (req, res) {
+    https.get(transformerBaseUrl + '/iot-fan/output/off');
+    return res.writeHead(204, {'Content-Type': 'text/plain'});
 });
- 
-server.on('request', function (req, res) {
-  if (req.path === '/poweron') {
-    fetch(transformerBaseUrl + '/iot-fan/output/on');
-    return res.writeHead(204, {'Content-Type': 'text/plain'});
-  }
-  if (req.path === '/poweroff') {
-    fetch(transformerBaseUrl + '/iot-fan/output/off');
-    return res.writeHead(204, {'Content-Type': 'text/plain'});
-  }
-  if (req.path === '/status') {
-    fetch(transformerBaseUrl + '/iot-fan/output/status').then(statusResponse => statusResponse.text()).then(data => {
-      return res.writeHead(200, {"status": data})
+
+app.get('/status', function (req, res) {
+  https.get(transformerBaseUrl + '/iot-fan/output/status', function (statusResponse) {
+    var body = '';
+    statusResponse.on('data', function (chunk) {
+      body += chunk;
     });
-    
-  }
-});
-
-server.on('symbolicLink', function (link, file) {
-  // link is the source of the reference
-  // file is the link reference
-  console.log('File', link, 'is a link to', file);
-});
- 
-server.on('response', function (req, res, err, file, stat) {
-  // res.status is the response status sent to the client
-  // res.headers are the headers sent
-  // err is any error message thrown
-  // file the file being served (may be null)
-  // stat the stat of the file being served (is null if file is null)
- 
-  // NOTE: the response has already been sent at this point
+    statusResponse.on('end', function () {
+      res.contentType('application/json');
+      return res.send(200, body)
+    });
+  }).end();
 });

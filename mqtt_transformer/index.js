@@ -7,6 +7,7 @@ const port = '1883';
 const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const transformerPort = 1789;
 const connectUrl = `mqtt://${host}:${port}`
+const UNKNOWN_STATUS = 'Desconocido';
 const client = mqtt.connect(connectUrl, {
   clientId,
   clean: true,
@@ -16,24 +17,14 @@ const client = mqtt.connect(connectUrl, {
   password: credentials.password
 })
 
-const topic = 'iot-fan/output';
-var currentStatus = "Desconocido";
+const command_topic = 'iot-fan/output';
+const status_topic_req = 'fan_status_req';
+const status_topic_res = 'fan_status_res';
 
-client.on('connect', () => {
-  console.log('Connected')
-  client.subscribe([topic, "fan_status_res"], () => {
-    console.log(`Subscribe to topic '${topic}'`)
-  });
-})
+var currentStatus = UNKNOWN_STATUS;
 
-client.on('message', (topic, payload) => {
-  console.log('Received Message:', topic, payload.toString())
-  if (topic === 'fan_status_res') {
-    currentStatus = payload;
-  }
-})
-
-var sendMessage = function(message) {
+var callback = null; 
+var sendMessage = function(message, topic) {
   console.log(`Sending Message: ${message}`);
   client.publish(topic, message, { qos: 0, retain: false }, (error) => {
     if (error) {
@@ -42,14 +33,40 @@ var sendMessage = function(message) {
   });
 };
 
+var sendCommand = function(message) {
+  sendMessage(message, command_topic);
+};
+
+var askStatus = function(message) {
+  sendMessage(message, status_topic_req);
+};
+
+client.on('connect', () => {
+  console.log('Connected')
+  client.subscribe([command_topic, status_topic_res], () => {
+    console.log(`Subscribe to topic '${command_topic}'`)
+  });
+})
+
+client.on('message', (topic, payload) => {
+  let stringPayload = payload.toString();
+  console.log('Received Message:', topic, stringPayload)
+  if (topic === status_topic_res) {
+    currentStatus = stringPayload;
+    if (callback) {
+      callback();
+    }
+  }
+})
+
 app.get('/iot-fan/output/on', (req, res) => {
-  sendMessage('on');
+  sendCommand('on');
   res.contentType('application/json');
   res.send('{"status":"on"}')
 });
 
 app.get('/iot-fan/output/off', (req, res) => {
-  sendMessage('off');
+  sendCommand('off');
   res.contentType('application/json');
   res.send('{"status":"off"}')
 });
@@ -60,5 +77,12 @@ app.listen(transformerPort, '0.0.0.0', () => {
 
 app.get('/iot-fan/output/status', (req, res) => {
   res.contentType('application/json');
-  res.send('{"updatedStatus":' + currentStatus + '}')
+  if (currentStatus !== UNKNOWN_STATUS) {
+    res.send('{"updatedStatus":"' + currentStatus + '"}')
+  } else {
+    callback = function() {
+      res.send('{"updatedStatus":"' + currentStatus + '"}')
+    };
+  }
+  askStatus('status');
 });
