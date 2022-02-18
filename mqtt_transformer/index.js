@@ -21,9 +21,10 @@ const command_topic = 'iot-fan/output';
 const status_topic_req = 'fan_status_req';
 const status_topic_res = 'fan_status_res';
 
-var currentStatus = UNKNOWN_STATUS;
-
-var callback = null; 
+var state = {
+  callback: null,
+  currentStatus: UNKNOWN_STATUS
+};
 
 var sendMessage = function(message, topic) {
   console.log(`Sending Message: ${message}`);
@@ -53,12 +54,13 @@ client.on('message', (topic, payload) => {
   let stringPayload = payload.toString();
   console.log('Received Message:', topic, stringPayload)
   if (topic === status_topic_res) {
-    currentStatus = stringPayload;
-    if (callback) {
-      callback();
+    state.currentStatus = stringPayload;
+    if (state.callback) {
+      state.callback();
+      state.callback = null;
     }
   }
-})
+});
 
 app.get('/iot-fan/output/on', (req, res) => {
   sendCommand('on');
@@ -73,11 +75,11 @@ app.get('/iot-fan/output/off', (req, res) => {
 });
 
 app.get('/iot-fan/output/status', (req, res) => {
-  if (currentStatus !== UNKNOWN_STATUS) {
-    sendStatus(res, currentStatus);
+  if (state.currentStatus !== UNKNOWN_STATUS) {
+    sendStatus(res, state.currentStatus);
   } else {
-    callback = function() {
-      sendStatus(res, currentStatus);
+    state.callback = function() {
+      sendStatus(res, state.currentStatus);
     };
   }
   askStatus('status');
