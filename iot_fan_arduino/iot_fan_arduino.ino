@@ -3,9 +3,11 @@
 #include <PubSubClient.h>
 
 #define MAX_LOG_BUFFER 1000
+#define COMMAND_TOPIC "iot-fan/output"
+#define STATUS_REQ_TOPIC "fan_status_req"
+#define STATUS_RES_TOPIC "fan_status_res"
 
 const char* mqtt_server = "192.168.1.1";
-const char* topic_to_subscribe = "iot-fan/output";
 const int relay = 0;
 
 String currentStatus = "";
@@ -20,6 +22,21 @@ void log(const char* data = "") {
     logBuffer = "";
   }
   logBuffer += String(millis()) + "> " + String(data) + "\n" + logBuffer;
+  Serial.println(data);
+}
+
+void setPowerOn() {
+  log("on - NO relay is ON");
+  digitalWrite(relay, LOW);
+  currentStatus = "on";
+  sendStatus();
+}
+
+void setPowerOff() {
+  log("off - NO relay is OFF");
+  digitalWrite(relay, HIGH);
+  currentStatus = "off";
+  sendStatus();
 }
 
 void setup() {
@@ -51,6 +68,11 @@ void setup() {
         wm.server->send(200, "text/plain charset=utf-8", logBuffer);
       });
 
+      wm.server->on("/log/clear", [&]() {
+        logBuffer = "";
+        wm.server->send(200, "text/plain charset=utf-8", "OK");
+      });
+
       client.setServer(mqtt_server, 1883);
       client.setCallback(mqtt_callback);
     }
@@ -65,18 +87,15 @@ void loop() {
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length) {
-  log("Message arrived on topic: ");
-  log(topic);
-  log(". Message: ");
   String messageTemp;
   
   for (int i = 0; i < length; i++) {
-    log((char)message[i]);
     messageTemp += (char)message[i];
   }
-  log();
 
-  if (String(topic) == topic_to_subscribe) {
+  log(String("Message arrived on topic: " + String(topic) + " Message: " + messageTemp).c_str());
+
+  if (String(topic) == COMMAND_TOPIC) {
     log("Changing output to ");
     if(messageTemp == "on"){
       setPowerOn();
@@ -85,7 +104,7 @@ void mqtt_callback(char* topic, byte* message, unsigned int length) {
       setPowerOff();
     }
   }
-  if(String(topic) == "fan_status_req") {
+  if(String(topic) == STATUS_REQ_TOPIC) {
     if (messageTemp == "status") {
       sendStatus();  
     }
@@ -96,18 +115,9 @@ void sendStatus() {
   client.publish("fan_status_res", ("status: " + currentStatus).c_str());
 }
 
-void setPowerOn() {
-  log("on - NO relay is ON");
-  digitalWrite(relay, LOW);
-  currentStatus = "on";
-  sendStatus();
-}
-
-void setPowerOff() {
-  log("off - NO relay is OFF");
-  digitalWrite(relay, HIGH);
-  currentStatus = "off";
-  sendStatus();
+void subscribe(char* topic) {
+  log(String("Subscribing topic: " + String(topic)).c_str());
+  client.subscribe(topic);
 }
 
 void reconnect() {
@@ -118,12 +128,10 @@ void reconnect() {
     if (client.connect("ESP8266Client")) {
       log("connected");
       // Subscribe
-      log("Subscribing topic:");
-      log(topic_to_subscribe);
-      client.subscribe(topic_to_subscribe);
+      subscribe(COMMAND_TOPIC);
+      subscribe(STATUS_REQ_TOPIC);
     } else {
-      log("failed, rc=");
-      log(client.state());
+      log("failed, rc=" + client.state());
       log(" try again in 1 seconds");
       // Wait 5 seconds before retrying
       delay(5000);

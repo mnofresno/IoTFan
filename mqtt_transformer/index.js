@@ -27,7 +27,7 @@ var state = {
 };
 
 var sendMessage = function(message, topic) {
-  console.log(`Sending Message: ${message}`);
+  console.log(`Sending Message: ${message}`, `over topic ${topic}`);
   client.publish(topic, message, { qos: 0, retain: false }, (error) => {
     if (error) {
       console.error(error)
@@ -43,11 +43,16 @@ var askStatus = function(message) {
   sendMessage(message, status_topic_req);
 };
 
+var subscribe = function (topic) {
+  client.subscribe([topic], () => {
+    console.log(`Subscribe to topic '${topic}'`)
+  });
+};
+
 client.on('connect', () => {
   console.log('Connected')
-  client.subscribe([command_topic, status_topic_res], () => {
-    console.log(`Subscribe to topic '${command_topic}'`)
-  });
+  subscribe(command_topic);
+  subscribe(status_topic_res);
 })
 
 client.on('message', (topic, payload) => {
@@ -91,7 +96,7 @@ var sendStatus = function (res, status) {
 
 var send = function(res, data) {
   res.contentType('application/json');
-  res.send(data);
+  res.send(JSON.stringify(data));
 };
 
 app.listen(transformerPort, '0.0.0.0', () => {

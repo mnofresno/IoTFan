@@ -21,17 +21,17 @@ var makeRequest = function (url, successCallback) {
 
 app.get('/poweron', function (req, res) {
     https.get(transformerBaseUrl + '/iot-fan/output/on');
-    return res.writeHead(204, {'Content-Type': 'text/plain'});
+    return res.contentType('text/plain').status(204).send();
 });
 
 app.get('/poweroff', function (req, res) {
     https.get(transformerBaseUrl + '/iot-fan/output/off');
-    return res.writeHead(204, {'Content-Type': 'text/plain'});
+    return res.contentType('text/plain').status(204).send();
 });
 
 app.get('/status', function (req, res) {
   makeRequest('/iot-fan/output/status', function (body) {
     res.contentType('application/json');
-    return res.status(200).json(body);
+    return res.status(200).send(body);
   });
 });
