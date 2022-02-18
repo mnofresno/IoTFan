@@ -73,16 +73,24 @@ app.get('/iot-fan/output/off', (req, res) => {
 });
 
 app.get('/iot-fan/output/status', (req, res) => {
-  res.contentType('application/json');
   if (currentStatus !== UNKNOWN_STATUS) {
-    res.send('{"updatedStatus":"' + currentStatus + '"}')
+    sendStatus(res, currentStatus);
   } else {
     callback = function() {
-      res.send('{"updatedStatus":"' + currentStatus + '"}')
+      sendStatus(res, currentStatus);
     };
   }
   askStatus('status');
 });
+
+var sendStatus = function (res, status) {
+  send(res, '{"updatedStatus":"' + status + '"}');
+};
+
+var send = function(res, data) {
+  res.contentType('application/json');
+  res.send(data);
+};
 
 app.listen(transformerPort, '0.0.0.0', () => {
   console.log(`MQTT Transformer app listening at PORT ${transformerPort}`)
