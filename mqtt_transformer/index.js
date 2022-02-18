@@ -24,6 +24,7 @@ const status_topic_res = 'fan_status_res';
 var currentStatus = UNKNOWN_STATUS;
 
 var callback = null; 
+
 var sendMessage = function(message, topic) {
   console.log(`Sending Message: ${message}`);
   client.publish(topic, message, { qos: 0, retain: false }, (error) => {
@@ -71,10 +72,6 @@ app.get('/iot-fan/output/off', (req, res) => {
   res.send('{"status":"off"}')
 });
 
-app.listen(transformerPort, '0.0.0.0', () => {
-  console.log(`MQTT Transformer app listening at http://localhost:${transformerPort}`)
-});
-
 app.get('/iot-fan/output/status', (req, res) => {
   res.contentType('application/json');
   if (currentStatus !== UNKNOWN_STATUS) {
@@ -85,4 +82,8 @@ app.get('/iot-fan/output/status', (req, res) => {
     };
   }
   askStatus('status');
+});
+
+app.listen(transformerPort, '0.0.0.0', () => {
+  console.log(`MQTT Transformer app listening at PORT ${transformerPort}`)
 });

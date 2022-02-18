@@ -1,3 +1,5 @@
+var transformerBaseUrl = 'http://localhost:1789';
+
 var express = require('express');
 const https = require('http');
 
@@ -5,11 +7,18 @@ var app = express();
 app.use(express.static(__dirname));
 app.listen(process.env.PORT || 8187);
 
-// import fetch from 'node-fetch';
+var makeRequest = function (url, successCallback) {
+  var request = https.get(transformerBaseUrl + url, function (statusResponse) {
+    var body = '';
+    statusResponse.on('data', function (chunk) {
+      body += chunk;
+    });
+    statusResponse.on('end', function () { successCallback(body); });
+  });
+  request.on('error', function (info) { console.log(info); });
+  request.end();
+};
 
-// var transformerBaseUrl = 'http://192.168.1.16:1789';
-var transformerBaseUrl = 'http://localhost:1789';
- 
 app.get('/poweron', function (req, res) {
     https.get(transformerBaseUrl + '/iot-fan/output/on');
     return res.writeHead(204, {'Content-Type': 'text/plain'});
@@ -21,14 +30,8 @@ app.get('/poweroff', function (req, res) {
 });
 
 app.get('/status', function (req, res) {
-  https.get(transformerBaseUrl + '/iot-fan/output/status', function (statusResponse) {
-    var body = '';
-    statusResponse.on('data', function (chunk) {
-      body += chunk;
-    });
-    statusResponse.on('end', function () {
-      res.contentType('application/json');
-      return res.send(200, body)
-    });
-  }).end();
+  makeRequest('/iot-fan/output/status', function (body) {
+    res.contentType('application/json');
+    return res.status(200).json(body);
+  });
 });
