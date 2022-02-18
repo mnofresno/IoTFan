@@ -86,7 +86,7 @@ app.get('/iot-fan/output/status', (req, res) => {
 });
 
 var sendStatus = function (res, status) {
-  send(res, '{"updatedStatus":"' + status + '"}');
+  send(res, {updatedStatus: status.replace('status: ', '')});
 };
 
 var send = function(res, data) {
