@@ -13,6 +13,8 @@ const char* mqtt_server = "192.168.1.1";
 const int relay = 0;
 int retriesToConnect = 10;
 bool successConnectingWifi;
+bool resetWdtForWifi = true;
+bool resetWdtForMQTT = true;
 
 String currentStatus = "";
 WiFiClient espClient;
@@ -58,6 +60,7 @@ void setPreviousStatus(int status) {
 }
 
 void setup() {
+    ESP.wdtEnable(5000);
     log("Starting CPU...");
     EEPROM.begin(EEPROM_SIZE);
 
@@ -102,14 +105,25 @@ void tryToConnectWifi() {
 }
 
 void loop() {
-    if (!WiFi.isConnected()) {
-      tryToConnectWifi();
-    }
-    wm.process();
-    if (!client.connected()) {
-      reconnect();
-    }
-    client.loop();
+  resetWdtForWifi = true;
+  resetWdtForMQTT = true;
+  
+  if (!WiFi.isConnected()) {
+    tryToConnectWifi();
+  } else {
+    resetWdtForWifi = false;
+  }
+  wm.process();
+  if (!client.connected()) {
+    reconnect();
+  } else {
+    resetWdtForMQTT = false;
+  }
+  client.loop();
+
+  if (!resetWdtForWifi && !resetWdtForMQTT) {
+    ESP.wdtFeed();
+  }
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length) {
