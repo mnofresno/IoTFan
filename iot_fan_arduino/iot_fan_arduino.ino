@@ -1,14 +1,18 @@
 #include <WiFiManager.h>
 //#include ".credentials.h"
 #include <PubSubClient.h>
+#include <EEPROM.h>
 
 #define MAX_LOG_BUFFER 1000
 #define COMMAND_TOPIC "iot-fan/output"
 #define STATUS_REQ_TOPIC "fan_status_req"
 #define STATUS_RES_TOPIC "fan_status_res"
+#define EEPROM_SIZE 12
 
 const char* mqtt_server = "192.168.1.1";
 const int relay = 0;
+int retriesToConnect = 10;
+bool successConnectingWifi;
 
 String currentStatus = "";
 WiFiClient espClient;
@@ -25,60 +29,82 @@ void log(const char* data = "") {
   Serial.println(data);
 }
 
-void setPowerOn() {
-  log("on - NO relay is ON");
-  digitalWrite(relay, LOW);
-  currentStatus = "on";
+void setPower(int value) {
+  currentStatus = value == LOW ? "on" : "off";
+  log(String("NO relay status is: " + currentStatus).c_str());
   sendStatus();
+  setPreviousStatus(value);
+  delay(250);
+  digitalWrite(relay, value);
+}
+
+void setPowerOn() {
+  setPower(LOW);
 }
 
 void setPowerOff() {
-  log("off - NO relay is OFF");
-  digitalWrite(relay, HIGH);
-  currentStatus = "off";
-  sendStatus();
+  setPower(HIGH);
+}
+
+int getPreviousStatus() {
+  int previousStatus = 0;
+  EEPROM.get(0, previousStatus); 
+  return previousStatus;
+}
+
+void setPreviousStatus(int status) {
+  EEPROM.put(0, status);
+  EEPROM.commit();
 }
 
 void setup() {
     log("Starting CPU...");
-    pinMode(relay, OUTPUT);    
-    setPowerOff();
-    delay(5000);
-    setPowerOn();
+    EEPROM.begin(EEPROM_SIZE);
+
+    pinMode(relay, OUTPUT);
+    delay(10);
+    setPower(getPreviousStatus());
     
     WiFi.mode(WIFI_STA);
     Serial.begin(115200);
-    
-    bool res;
-    
-    res = wm.autoConnect("IoTFanESPMini","password"); // password protected ap
+}
 
-    if(!res) {
-        log("Failed to connect");
-        // ESP.restart();
-    } 
-    else {
-      //if you get here you have connected to the WiFi    
-      log("connected...yeey :)");
-    
-      wm.setConfigPortalBlocking(false);
-      wm.startConfigPortal();
+void tryToConnectWifi() {
+  if (retriesToConnect < 1) {
+    ESP.restart();
+  }
+  successConnectingWifi = wm.autoConnect("IoTFanESPMini","password"); // password protected ap 
+  if(!successConnectingWifi) {
+      log("Failed to connect Wifi");
+      delay(250);
+      retriesToConnect--;
+      tryToConnectWifi();
+  } 
+  else {
+    //if you get here you have connected to the WiFi    
+    log("connected...yeey :)");
+  
+    wm.setConfigPortalBlocking(false);
+    wm.startConfigPortal();
 
-      wm.server->on("/log", [&]() {
-        wm.server->send(200, "text/plain charset=utf-8", logBuffer);
-      });
+    wm.server->on("/log", [&]() {
+      wm.server->send(200, "text/plain charset=utf-8", logBuffer);
+    });
 
-      wm.server->on("/log/clear", [&]() {
-        logBuffer = "";
-        wm.server->send(200, "text/plain charset=utf-8", "OK");
-      });
+    wm.server->on("/log/clear", [&]() {
+      logBuffer = "";
+      wm.server->send(200, "text/plain charset=utf-8", "OK");
+    });
 
-      client.setServer(mqtt_server, 1883);
-      client.setCallback(mqtt_callback);
-    }
+    client.setServer(mqtt_server, 1883);
+    client.setCallback(mqtt_callback);
+  }
 }
 
 void loop() {
+    if (!WiFi.isConnected()) {
+      tryToConnectWifi();
+    }
     wm.process();
     if (!client.connected()) {
       reconnect();
@@ -121,6 +147,9 @@ void subscribe(char* topic) {
 }
 
 void reconnect() {
+  if (retriesToConnect < 1) {
+    ESP.restart();
+  }
   // Loop until we're reconnected
   while (!client.connected()) {
     log("Attempting MQTT connection...");
@@ -132,9 +161,10 @@ void reconnect() {
       subscribe(STATUS_REQ_TOPIC);
     } else {
       log("failed, rc=" + client.state());
-      log(" try again in 1 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
+      log(" try again in 0.5 seconds");
+      // Wait 500 mili seconds before retrying
+      delay(250);
+      retriesToConnect--;
     }
   }
 }
